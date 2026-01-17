@@ -3,17 +3,17 @@ import json
 import os
 import time
 
-# --- MQTT CONFIGURATION ---
+# --- MQTT CONFIGURATION (from environment variables) ---
 MQTT_BROKER = os.getenv("MQTT_BROKER", "localhost")
 MQTT_PORT = int(os.getenv("MQTT_PORT", "1883"))
 MQTT_USER = os.getenv("MQTT_USER", "")
 MQTT_PASSWORD = os.getenv("MQTT_PASSWORD", "")
 MQTT_CLIENT_ID = os.getenv("MQTT_CLIENT_ID", "geiger-detector")
 
-# Home Assistant Discovery
+# Home Assistant Discovery Topic
 HA_DISCOVERY_TOPIC_PREFIX = os.getenv("HA_DISCOVERY_PREFIX", "homeassistant")
 
-# --- DEVICE CONFIGURATION ---
+# --- DEVICE CONFIGURATION (from environment variables) ---
 DEVICE_ID = os.getenv("DEVICE_ID", "geiger-detector")
 DEVICE_NAME = os.getenv("DEVICE_NAME", "Geiger Detector")
 DEVICE_MANUFACTURER = os.getenv("DEVICE_MANUFACTURER", "GQ Electronics")
@@ -33,6 +33,8 @@ def on_disconnect(client, userdata, rc):
 
 def publish_discovery(client):
     """Publish discovery messages for Home Assistant"""
+    
+    # Device info
     device_info = {
         "identifiers": [DEVICE_ID],
         "name": DEVICE_NAME,
@@ -51,8 +53,6 @@ def publish_discovery(client):
         "unit_of_measurement": "CPM",
         "state_class": "measurement",
         "value_template": "{{ value_json.value | int }}",
-        "json_attributes_topic": "geiger/cpm",
-        "json_attributes_template": "{{ value_json | tojson }}",
         "device": device_info,
         "platform": "mqtt"
     }
@@ -61,7 +61,7 @@ def publish_discovery(client):
     client.publish(cpm_topic, json.dumps(cpm_discovery, separators=(',', ':')), qos=1, retain=True)
     print(f"[Discovery] Published CPM discovery to: {cpm_topic}")
     
-    # --- SENSOR uSv/h ---
+    # --- SENSOR uSv/h (without special chars) ---
     usvh_discovery = {
         "unique_id": f"{DEVICE_ID}_dose_rate",
         "device_class": "radiation",
@@ -70,8 +70,6 @@ def publish_discovery(client):
         "unit_of_measurement": "uSv/h",
         "state_class": "measurement",
         "value_template": "{{ value_json.value | float }}",
-        "json_attributes_topic": "geiger/usvh",
-        "json_attributes_template": "{{ value_json | tojson }}",
         "device": device_info,
         "platform": "mqtt"
     }
@@ -86,16 +84,19 @@ def main():
     client.on_disconnect = on_disconnect
     
     try:
+        # Credentials setup if provided
         if MQTT_USER and MQTT_PASSWORD:
             client.username_pw_set(MQTT_USER, MQTT_PASSWORD)
         
-        print(f"[Discovery] Connecting to {MQTT_BROKER}:{MQTT_PORT}...")
+        print(f"[Discovery] Connection to {MQTT_BROKER}:{MQTT_PORT}...")
         client.connect(MQTT_BROKER, MQTT_PORT, keepalive=60)
         client.loop_start()
         
-        time.sleep(2)
-        publish_discovery(client)
-        time.sleep(1)
+        time.sleep(2)  # Wait for connection to establish
+        
+        publish_discovery(client)   # Publish discovery messages
+        
+        time.sleep(1)   # Ensure messages are sent before disconnecting
         
         client.loop_stop()
         client.disconnect()

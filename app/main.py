@@ -10,8 +10,8 @@ PORT = os.getenv("SERIAL_PORT", "/dev/ttyUSB1")
 BAUDRATE = int(os.getenv("SERIAL_BAUDRATE", "115200"))
 TIMEOUT = int(os.getenv("SERIAL_TIMEOUT", "1"))
 
-CPM_TO_USVH = float(os.getenv("CPM_TO_USVH", "153.0"))  # costante GQ per SBM-20
-WINDOW_SIZE = int(os.getenv("WINDOW_SIZE", "10"))  # numero di campioni per la media
+CPM_TO_USVH = float(os.getenv("CPM_TO_USVH", "153.0"))  # GQ constant for SBM-20
+WINDOW_SIZE = int(os.getenv("WINDOW_SIZE", "10"))  # number of samples for averaging
 
 # --- MQTT CONFIGURATION (from environment variables) ---
 MQTT_BROKER = os.getenv("MQTT_BROKER", "localhost")
@@ -24,10 +24,10 @@ MQTT_CLIENT_ID = os.getenv("MQTT_CLIENT_ID", "geiger-detector")
 
 def send_cmd(ser, cmd, resp_len=0, is_ascii=False):
     """
-    Invia comando RFC1801 al GMC e legge risposta.
-    - cmd: stringa comando (es. 'GETVER')
-    - resp_len: numero di byte attesi (0 = nessuna lettura)
-    - is_ascii: se True decodifica in ASCII
+    Send RFC1801 command to GMC and read response.
+    - cmd: command string (e.g. 'GETVER')
+    - resp_len: number of expected bytes (0 = no response)
+    - is_ascii: if True decode as ASCII
     """
     ser.reset_input_buffer()
     packet = f"<{cmd}>>".encode("ascii")
@@ -45,9 +45,8 @@ def send_cmd(ser, cmd, resp_len=0, is_ascii=False):
 
 def read_variable_ascii(ser, cmd, timeout=1.0):
     """
-    Per comandi RFC1801 che ritornano ASCII di lunghezza variabile,
-    leggiamo fino a timeout o fino a '>>' (indicatore di fine pacchetto).
-    """
+    For RFC1801 commands that return variable-length ASCII,
+    read until timeout or end indicator ('>>')."""
     ser.reset_input_buffer()
     ser.write(f"<{cmd}>>".encode("ascii"))
     deadline = time.time() + timeout
@@ -61,19 +60,19 @@ def read_variable_ascii(ser, cmd, timeout=1.0):
     return buffer.decode("ascii", errors="ignore").strip()
 
 def on_mqtt_connect(client, userdata, flags, rc):
-    """Callback connessione MQTT"""
+    """MQTT connection callback"""
     if rc == 0:
-        print("[MQTT] Connesso al broker")
+        print("[MQTT] Connected to broker")
     else:
-        print(f"[MQTT] Errore connessione, codice: {rc}")
+        print(f"[MQTT] Connection error, code: {rc}")
 
 def on_mqtt_disconnect(client, userdata, rc):
-    """Callback disconnessione MQTT"""
+    """MQTT disconnection callback"""
     if rc != 0:
-        print(f"[MQTT] Disconnessione inaspettata, codice: {rc}")
+        print(f"[MQTT] Unexpected disconnection, code: {rc}")
 
 def publish_sensor(client, topic, value, min_val, avg_val, max_val):
-    """Pubblica dati sensore in formato JSON"""
+    """Publish sensor data in JSON format"""
     payload = {
         "value": value,
         "min": min_val,
@@ -88,72 +87,72 @@ def main():
     client.on_connect = on_mqtt_connect
     client.on_disconnect = on_mqtt_disconnect
     try:
-        # Configura credenziali se fornite
+        # Configure credentials if provided
         if MQTT_USER and MQTT_PASSWORD:
             client.username_pw_set(MQTT_USER, MQTT_PASSWORD)
         client.connect(MQTT_BROKER, MQTT_PORT, keepalive=60)
         client.loop_start()
-        print(f"[MQTT] Connessione a {MQTT_BROKER}:{MQTT_PORT}")
+        print(f"[MQTT] Connecting to {MQTT_BROKER}:{MQTT_PORT}")
         if MQTT_USER:
-            print(f"[MQTT] Autenticato come: {MQTT_USER}")
+            print(f"[MQTT] Authenticated as: {MQTT_USER}")
     except Exception as e:
-        print(f"[MQTT] Errore: {e}")
+        print(f"[MQTT] Error: {e}")
         client = None
 
-    # --- SETUP SERIALE ---
+    # --- SETUP SERIAL ---
     ser = serial.Serial(PORT, BAUDRATE, timeout=TIMEOUT)
     try:
-        print(f"Connesso a {PORT} @ {BAUDRATE}")
+        print(f"Connected to {PORT} @ {BAUDRATE}")
         time.sleep(0.5)
 
-        # --- DISATTIVA HEARTBEAT ---
-        print("Disabilito heartbeat (HEARTBEAT0)")
+        # --- DISABLE HEARTBEAT ---
+        print("Disabling heartbeat (HEARTBEAT0)")
         send_cmd(ser, "HEARTBEAT0")
 
-        # --- VERSIONE ASCII ---
+        # --- VERSION ASCII ---
         version = read_variable_ascii(ser, "GETVER", timeout=1.5)
-        print("Versione:", version if version else "<nessuna risposta>")
+        print("Version:", version if version else "<no response>")
 
-        # --- BATTERIA ASCII (5 byte) ---
+        # --- BATTERY ASCII (5 bytes) ---
         batt = send_cmd(ser, "GETVOLT", resp_len=5, is_ascii=True)
-        print("Battery:", batt if batt else "<nessuna risposta>")
+        print("Battery:", batt if batt else "<no response>")
 
-        # --- SERIAL NUMBER (7 byte) ---
+        # --- SERIAL NUMBER (7 bytes) ---
         raw_ser = send_cmd(ser, "GETSERIAL", resp_len=7)
         if raw_ser:
             serial_num = raw_ser.hex().upper()
             print("Serial:", serial_num)
         else:
-            print("Serial: nessuna risposta")
+            print("Serial: no response")
 
-        # --- DATETIME (7 byte) ---
+        # --- DATETIME (7 bytes) ---
         raw_dt = send_cmd(ser, "GETDATETIME", resp_len=7)
         if raw_dt:
             yy, mm, dd, hh, mi, ss, aa = raw_dt
-            print(f"Data/Ora: 20{yy:02d}-{mm:02d}-{dd:02d} {hh:02d}:{mi:02d}:{ss:02d}")
+            print(f"DateTime: 20{yy:02d}-{mm:02d}-{dd:02d} {hh:02d}:{mi:02d}:{ss:02d}")
         else:
-            print("Data/Ora: nessuna risposta")
+            print("DateTime: no response")
 
-        print("\nInizio lettura continua (Ctrl+C per uscire)...\n")
+        print("\nStarting continuous reading (Ctrl+C to exit)...\n")
 
-        # --- BUFFER PER PICCO E MEDIA ---
+        # --- BUFFER FOR MIN/AVG/MAX ---
         cpm_history = deque(maxlen=WINDOW_SIZE)
         usvh_history = deque(maxlen=WINDOW_SIZE)
 
-        # --- LOOP CONTINUO ---
+        # --- CONTINUOUS LOOP ---
         while True:
-            # --- CPM (4 byte big endian) ---
+            # --- CPM (4 bytes big endian) ---
             raw_cpm = send_cmd(ser, "GETCPM", resp_len=4)
             if raw_cpm:
                 cpm = struct.unpack(">I", raw_cpm)[0]
-                # µSv/h CALCOLATO
+                # Calculate µSv/h
                 usvh = round(cpm / CPM_TO_USVH, 4)
                 
-                # Aggiungi ai buffer storici
+                # Add to history buffers
                 cpm_history.append(cpm)
                 usvh_history.append(usvh)
                 
-                # Calcola minimo, media e massimo
+                # Calculate min, average, and max
                 cpm_min = min(cpm_history) if cpm_history else 0
                 cpm_avg = round(sum(cpm_history) / len(cpm_history), 2) if cpm_history else 0
                 cpm_max = max(cpm_history) if cpm_history else 0
@@ -164,24 +163,24 @@ def main():
                 print(f"CPM: {cpm:6d} ({cpm_min:6d}, {cpm_avg:6.2f}, {cpm_max:6d}) | "
                       f"µSv/h: {usvh:.4f} ({usvh_min:.4f}, {usvh_avg:.4f}, {usvh_max:.4f})")
                 
-                # --- PUBBLICA SU MQTT ---
+                # --- PUBLISH TO MQTT ---
                 if client:
                     publish_sensor(client, MQTT_TOPIC_CPM, cpm, cpm_min, cpm_avg, cpm_max)
                     publish_sensor(client, MQTT_TOPIC_USVH, usvh, usvh_min, usvh_avg, usvh_max)
             else:
-                print("CPM: nessuna risposta")
+                print("CPM: no response")
 
-            time.sleep(1)  # Leggi ogni secondo
+            time.sleep(1)  # Read every second
 
     except KeyboardInterrupt:
-        print("\nInterrotto dall'utente")
+        print("\nInterrupted by user")
     finally:
         ser.close()
-        print("Porta seriale chiusa")
+        print("Serial port closed")
         if client:
             client.loop_stop()
             client.disconnect()
-            print("Disconnesso da MQTT")
+            print("Disconnected from MQTT")
 
 if __name__ == "__main__":
     main()
