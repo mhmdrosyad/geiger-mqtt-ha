@@ -2,13 +2,25 @@ import serial
 import time
 import struct
 from collections import deque
+import paho.mqtt.client as mqtt
+import json
+import os
 
-PORT = "/dev/ttyUSB1"
-BAUDRATE = 115200
-TIMEOUT = 1
+PORT = os.getenv("SERIAL_PORT", "/dev/ttyUSB1")
+BAUDRATE = int(os.getenv("SERIAL_BAUDRATE", "115200"))
+TIMEOUT = int(os.getenv("SERIAL_TIMEOUT", "1"))
 
-CPM_TO_USVH = 153.0  # costante GQ per SBM-20
-WINDOW_SIZE = 10  # numero di campioni per la media
+CPM_TO_USVH = float(os.getenv("CPM_TO_USVH", "153.0"))  # costante GQ per SBM-20
+WINDOW_SIZE = int(os.getenv("WINDOW_SIZE", "10"))  # numero di campioni per la media
+
+# --- MQTT CONFIGURATION (from environment variables) ---
+MQTT_BROKER = os.getenv("MQTT_BROKER", "localhost")
+MQTT_PORT = int(os.getenv("MQTT_PORT", "1883"))
+MQTT_USER = os.getenv("MQTT_USER", "")
+MQTT_PASSWORD = os.getenv("MQTT_PASSWORD", "")
+MQTT_TOPIC_CPM = os.getenv("MQTT_TOPIC_CPM", "geiger/cpm")
+MQTT_TOPIC_USVH = os.getenv("MQTT_TOPIC_USVH", "geiger/usvh")
+MQTT_CLIENT_ID = os.getenv("MQTT_CLIENT_ID", "geiger-detector")
 
 def send_cmd(ser, cmd, resp_len=0, is_ascii=False):
     """
@@ -48,7 +60,47 @@ def read_variable_ascii(ser, cmd, timeout=1.0):
             break
     return buffer.decode("ascii", errors="ignore").strip()
 
+def on_mqtt_connect(client, userdata, flags, rc):
+    """Callback connessione MQTT"""
+    if rc == 0:
+        print("[MQTT] Connesso al broker")
+    else:
+        print(f"[MQTT] Errore connessione, codice: {rc}")
+
+def on_mqtt_disconnect(client, userdata, rc):
+    """Callback disconnessione MQTT"""
+    if rc != 0:
+        print(f"[MQTT] Disconnessione inaspettata, codice: {rc}")
+
+def publish_sensor(client, topic, value, min_val, avg_val, max_val):
+    """Pubblica dati sensore in formato JSON"""
+    payload = {
+        "value": value,
+        "min": min_val,
+        "avg": avg_val,
+        "max": max_val
+    }
+    client.publish(topic, json.dumps(payload), qos=1)
+
 def main():
+    # --- SETUP MQTT ---
+    client = mqtt.Client(client_id=MQTT_CLIENT_ID)
+    client.on_connect = on_mqtt_connect
+    client.on_disconnect = on_mqtt_disconnect
+    try:
+        # Configura credenziali se fornite
+        if MQTT_USER and MQTT_PASSWORD:
+            client.username_pw_set(MQTT_USER, MQTT_PASSWORD)
+        client.connect(MQTT_BROKER, MQTT_PORT, keepalive=60)
+        client.loop_start()
+        print(f"[MQTT] Connessione a {MQTT_BROKER}:{MQTT_PORT}")
+        if MQTT_USER:
+            print(f"[MQTT] Autenticato come: {MQTT_USER}")
+    except Exception as e:
+        print(f"[MQTT] Errore: {e}")
+        client = None
+
+    # --- SETUP SERIALE ---
     ser = serial.Serial(PORT, BAUDRATE, timeout=TIMEOUT)
     try:
         print(f"Connesso a {PORT} @ {BAUDRATE}")
@@ -111,6 +163,11 @@ def main():
                 
                 print(f"CPM: {cpm:6d} ({cpm_min:6d}, {cpm_avg:6.2f}, {cpm_max:6d}) | "
                       f"µSv/h: {usvh:.4f} ({usvh_min:.4f}, {usvh_avg:.4f}, {usvh_max:.4f})")
+                
+                # --- PUBBLICA SU MQTT ---
+                if client:
+                    publish_sensor(client, MQTT_TOPIC_CPM, cpm, cpm_min, cpm_avg, cpm_max)
+                    publish_sensor(client, MQTT_TOPIC_USVH, usvh, usvh_min, usvh_avg, usvh_max)
             else:
                 print("CPM: nessuna risposta")
 
@@ -121,6 +178,10 @@ def main():
     finally:
         ser.close()
         print("Porta seriale chiusa")
+        if client:
+            client.loop_stop()
+            client.disconnect()
+            print("Disconnesso da MQTT")
 
 if __name__ == "__main__":
     main()
