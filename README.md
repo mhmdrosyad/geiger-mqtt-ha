@@ -19,16 +19,13 @@ geiger/
 ├── README.md              # This file
 └── app/
     ├── main.py            # Main reader and MQTT publisher
-    ├── discovery.py       # Home Assistant MQTT discovery publisher
-    ├── clean_discovery.py # Clean old discovery configs
-    ├── debug_discovery.py # Debug discovery payloads
-    └── test_mqtt.py       # Test MQTT connectivity
+    └── discovery.py       # Home Assistant MQTT discovery publisher
 ```
 
 ## Hardware Requirements
 
 - GQ Electronics GMC Geiger counter (GMC-500+Re, GMC-600+, etc.)
-- USB-to-Serial adapter (if using USB connection)
+- USB cable
 - Network access to MQTT broker
 - Docker host with USB passthrough capability
 
@@ -49,7 +46,7 @@ docker build -t geiger-detector:latest .
 docker run -d \
   --name geiger_detector \
   --device=/dev/ttyUSB1:/dev/ttyUSB1 \
-  -e MQTT_BROKER=192.168.1.72 \
+  -e MQTT_BROKER=192.168.x.x \
   -e MQTT_PORT=1883 \
   -e MQTT_USER=mosquitto_user \
   -e MQTT_PASSWORD=mosquitto_pass \
@@ -180,13 +177,15 @@ The container publishes Home Assistant MQTT Discovery messages on startup:
 - **CPM Sensor**: `homeassistant/sensor/geiger-detector-cpm/config`
 - **Dose Rate Sensor**: `homeassistant/sensor/geiger-detector-dose_rate/config`
 
+![Home Assistant Integration](screenshots/Screenshot%202026-01-17%20231007.png)
+
 ### Manual Configuration (if discovery doesn't work)
 
 Add to your `configuration.yaml`:
 
 ```yaml
 mqtt:
-  broker: 192.168.1.72
+  broker: 192.168.x.x
   username: mosquitto_user
   password: mosquitto_pass
   discovery: true
@@ -225,7 +224,7 @@ Settings > System > Restart Home Assistant
 ### main.py
 
 Main application that:
-- Connects to the Geiger detector via serial
+- Connects to the Geiger detector via serial (native USB connection)
 - Reads CPM and calculates µSv/h
 - Tracks min/avg/max statistics
 - Publishes to MQTT every second
@@ -236,30 +235,6 @@ Publishes Home Assistant MQTT Discovery messages to enable automatic device and 
 
 ```bash
 python3 /app/discovery.py
-```
-
-### clean_discovery.py
-
-Cleans up old discovery configurations and republishes fresh ones. Use if HA doesn't recognize the device:
-
-```bash
-python3 /app/clean_discovery.py
-```
-
-### debug_discovery.py
-
-Shows the exact discovery JSON payloads that would be published:
-
-```bash
-python3 /app/debug_discovery.py
-```
-
-### test_mqtt.py
-
-Tests MQTT connectivity and publishes sample data:
-
-```bash
-python3 /app/test_mqtt.py
 ```
 
 ## Troubleshooting
@@ -283,19 +258,14 @@ python3 /app/test_mqtt.py
 
 ### No MQTT Connection
 
-1. Test connectivity:
-   ```bash
-   docker exec geiger_gmc500 python3 /app/test_mqtt.py
-   ```
-
-2. Check MQTT broker is running:
+1. Check MQTT broker is running:
    ```bash
    docker logs mosquitto
    ```
 
-3. Verify credentials:
+2. Verify credentials:
    ```bash
-   mosquitto_pub -h 192.168.1.72 -u mosquitto_user -P mosquitto_pass -t test -m "hello"
+   mosquitto_pub -h 192.168.x.x -u mosquitto_user -P mosquitto_pass -t test -m "hello"
    ```
 
 ### Sensor Not Appearing in Home Assistant
@@ -311,17 +281,12 @@ python3 /app/test_mqtt.py
      discovery_prefix: homeassistant
    ```
 
-3. Republish discovery:
-   ```bash
-   docker exec geiger_gmc500 python3 /app/clean_discovery.py
-   ```
-
-4. Restart Home Assistant:
+3. Restart Home Assistant:
    - Settings > System > Restart Home Assistant
 
-5. Check discovery topic in MQTT:
+4. Check discovery topic in MQTT:
    ```bash
-   mosquitto_sub -h 192.168.1.72 -u user -P pass \
+   mosquitto_sub -h 192.168.x.x -u user -P pass \
      -t "homeassistant/sensor/geiger-detector-cpm/config" \
      -v
    ```
@@ -337,7 +302,7 @@ python3 /app/test_mqtt.py
 
 2. Check MQTT messages:
    ```bash
-   mosquitto_sub -h 192.168.1.72 -u user -P pass \
+   mosquitto_sub -h 192.168.x.x -u user -P pass \
      -t "geiger/#" -v
    ```
 
@@ -375,7 +340,6 @@ services:
     container_name: mosquitto
     ports:
       - "1883:1883"
-      - "8883:8883"
     volumes:
       - ./mosquitto/config:/mosquitto/config
       - ./mosquitto/data:/mosquitto/data
