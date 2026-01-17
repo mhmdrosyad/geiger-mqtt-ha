@@ -13,6 +13,10 @@ TIMEOUT = int(os.getenv("SERIAL_TIMEOUT", "1"))
 CPM_TO_USVH = float(os.getenv("CPM_TO_USVH", "153.0"))  # GQ constant for SBM-20
 WINDOW_SIZE = int(os.getenv("WINDOW_SIZE", "10"))  # number of samples for averaging
 
+# --- DATA VALIDATION ---
+MAX_CPM = int(os.getenv("MAX_CPM", "100000"))  # Max reasonable CPM value (filter outliers)
+MAX_CPM_JUMP = float(os.getenv("MAX_CPM_JUMP", "5.0"))  # Max multiplier for rate of change
+
 # --- MQTT CONFIGURATION (from environment variables) ---
 MQTT_BROKER = os.getenv("MQTT_BROKER", "localhost")
 MQTT_PORT = int(os.getenv("MQTT_PORT", "1883"))
@@ -21,6 +25,23 @@ MQTT_PASSWORD = os.getenv("MQTT_PASSWORD", "")
 MQTT_TOPIC_CPM = os.getenv("MQTT_TOPIC_CPM", "geiger/cpm")
 MQTT_TOPIC_USVH = os.getenv("MQTT_TOPIC_USVH", "geiger/usvh")
 MQTT_CLIENT_ID = os.getenv("MQTT_CLIENT_ID", "geiger-detector")
+
+def validate_cpm(cpm, last_valid_cpm=None):
+    """
+    Validate CPM reading against reasonable limits.
+    Returns (is_valid, cpm)
+    """
+    # Check absolute maximum
+    if cpm < 0 or cpm > MAX_CPM:
+        return False, cpm
+    
+    # Check rate of change (if we have a previous valid reading)
+    if last_valid_cpm is not None and last_valid_cpm > 0:
+        ratio = cpm / last_valid_cpm
+        if ratio > MAX_CPM_JUMP or ratio < (1.0 / MAX_CPM_JUMP):
+            return False, cpm
+    
+    return True, cpm
 
 def send_cmd(ser, cmd, resp_len=0, is_ascii=False):
     """
@@ -144,6 +165,7 @@ def main():
         # --- BUFFER FOR MIN/AVG/MAX ---
         cpm_history = deque(maxlen=WINDOW_SIZE)
         usvh_history = deque(maxlen=WINDOW_SIZE)
+        last_valid_cpm = None
 
         # --- CONTINUOUS LOOP ---
         while True:
@@ -151,6 +173,15 @@ def main():
             raw_cpm = send_cmd(ser, "GETCPM", resp_len=4)
             if raw_cpm:
                 cpm = struct.unpack(">I", raw_cpm)[0]
+                
+                # Validate CPM reading
+                is_valid, cpm = validate_cpm(cpm, last_valid_cpm)
+                if not is_valid:
+                    print(f"[WARN] Discarded invalid CPM reading: {cpm}")
+                    continue
+                
+                last_valid_cpm = cpm
+                
                 # Calculate µSv/h
                 usvh = round(cpm / CPM_TO_USVH, 4)
                 

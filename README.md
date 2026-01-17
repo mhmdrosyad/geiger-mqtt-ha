@@ -8,6 +8,7 @@ A complete Docker container solution for interfacing with GQ Electronics GMC Gei
 - **MQTT Publishing**: Publish readings in JSON format with min/avg/max statistics
 - **Home Assistant Discovery**: Automatic sensor discovery for seamless HA integration
 - **Real-time Statistics**: Track minimum, average, and maximum values over configurable time windows
+- **Data Validation**: Automatic filtering of serial noise and anomalous readings
 - **Environment Parametrization**: All settings configurable via environment variables
 - **Authentication Support**: Optional MQTT username/password authentication
 
@@ -152,6 +153,8 @@ docker compose down geiger && docker compose up -d geiger
 |----------|---------|-------------|
 | `CPM_TO_USVH` | `153.0` | Conversion factor (CPM to µSv/h) - GQ SBM-20 constant |
 | `WINDOW_SIZE` | `10` | Number of samples for min/avg/max calculation |
+| `MAX_CPM` | `100000` | Maximum reasonable CPM value - readings above this are discarded as noise |
+| `MAX_CPM_JUMP` | `5.0` | Maximum multiplier for rate of change (e.g., 5.0 = 5x jump is OK, >5x discarded) |
 
 ### MQTT Configuration
 
@@ -348,6 +351,30 @@ python3 /app/discovery.py
    ```bash
    docker logs -f geiger_gmc500
    ```
+
+### Discarded Readings / Noise Filtering
+
+If you see `[WARN] Discarded invalid CPM reading:` in logs, the validation filter is working. This happens when:
+
+1. **Serial noise**: Corrupted data from serial connection
+2. **Extreme values**: CPM reading exceeds `MAX_CPM` (default 100000)
+3. **Rate spikes**: Value jumps >5x from previous reading
+
+To adjust filtering:
+
+```yaml
+environment:
+  MAX_CPM: "50000"          # Lower limit for valid readings
+  MAX_CPM_JUMP: "3.0"       # Stricter jump tolerance (3x instead of 5x)
+```
+
+If legitimate readings are being discarded, increase these values:
+
+```yaml
+environment:
+  MAX_CPM: "500000"         # Higher if detector is very close to source
+  MAX_CPM_JUMP: "10.0"      # Allow larger jumps
+```
 
 ### High/Low Readings
 
