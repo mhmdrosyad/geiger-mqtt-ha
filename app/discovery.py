@@ -46,7 +46,7 @@ def publish_discovery(client):
     # --- SENSOR CPM ---
     cpm_discovery = {
         "unique_id": f"{DEVICE_ID}_cpm",
-        "icon": "mdi:radioactive",  # Sostituisce device_class non valida
+        "icon": "mdi:radioactive",
         "name": "CPM",
         "state_topic": "geiger/cpm",
         "unit_of_measurement": "CPM",

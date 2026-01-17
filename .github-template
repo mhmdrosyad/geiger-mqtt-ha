@@ -1,0 +1,26 @@
+# Geiger Detector MQTT Integration for Home Assistant
+
+**Optional:** This file is a template. To fully publish on GitHub:
+
+1. Create a GitHub repository
+2. Add collaborators if needed
+3. Configure branch protection rules (optional)
+4. Enable GitHub Pages if you want a project site
+
+## Remote URL Setup
+```bash
+cd /home/server/docker/data/geiger
+git remote add origin https://github.com/YOUR_USERNAME/geiger-mqtt-ha.git
+git branch -M main
+git push -u origin main
+```
+
+## Recommended Repository Settings
+- **Description**: GQ Electronics GMC Geiger detector MQTT integration with Home Assistant discovery
+- **Topics**: `geiger-detector`, `mqtt`, `home-assistant`, `iot`, `python`
+- **License**: MIT
+- **Include README**: ✓
+- **Include .gitignore**: ✓
+
+## GitHub Actions (optional, for future CI/CD)
+Create `.github/workflows/lint.yml` to auto-check code quality on push.

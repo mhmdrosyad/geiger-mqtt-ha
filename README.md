@@ -15,11 +15,17 @@ A complete Docker container solution for interfacing with GQ Electronics GMC Gei
 
 ```
 geiger/
-├── Dockerfile              # Container definition
+├── .gitignore             # Git ignore rules
+├── .github-template       # GitHub setup guide
+├── LICENSE                # MIT License
 ├── README.md              # This file
+├── Dockerfile             # Container definition
+├── docker-compose.yaml    # Docker Compose configuration
+├── screenshots/           # Integration examples
 └── app/
     ├── main.py            # Main reader and MQTT publisher
-    └── discovery.py       # Home Assistant MQTT discovery publisher
+    ├── discovery.py       # Home Assistant MQTT discovery publisher
+    └── requirements.txt   # Python dependencies
 ```
 
 ## Hardware Requirements
@@ -30,6 +36,19 @@ geiger/
 - Docker host with USB passthrough capability
 
 ## Building the Container
+
+### Prerequisites
+
+**If using Docker (Recommended):** No prerequisites needed - all dependencies are included in the container.
+
+**If developing/testing locally:** Install Python dependencies:
+```bash
+pip install -r app/requirements.txt
+```
+
+Dependencies:
+- `pyserial` - Serial port communication
+- `paho-mqtt` - MQTT client library
 
 ### Build from Dockerfile
 
@@ -96,6 +115,25 @@ services:
       - mosquitto
     networks:
       - smarthome
+```
+
+### Starting and Updating the Container
+
+```bash
+# First time: build image and start container
+docker compose up -d --build geiger
+
+# Update environment variables or docker-compose.yaml (no Dockerfile changes)
+docker compose up -d geiger
+
+# Quick restart (no changes to config/Dockerfile)
+docker compose restart geiger
+
+# Rebuild if Dockerfile was modified
+docker compose up -d --build geiger
+
+# Complete recreation (clean restart)
+docker compose down geiger && docker compose up -d geiger
 ```
 
 ## Environment Variables
@@ -384,7 +422,25 @@ networks:
 
 ## License
 
-This project is provided as-is for personal use with GQ Electronics detectors.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## GitHub Publication
+
+Ready to publish? Follow the steps in [.github-template](.github-template):
+
+```bash
+git init
+git add .
+git commit -m "Initial commit: Geiger detector MQTT integration"
+git branch -M main
+git remote add origin https://github.com/YOUR_USERNAME/geiger-mqtt-ha.git
+git push -u origin main
+```
+
+Recommended repository metadata:
+- **Description**: GQ Electronics GMC Geiger detector MQTT integration with Home Assistant discovery
+- **Topics**: `geiger-detector`, `mqtt`, `home-assistant`, `iot`, `python`
+- **License**: MIT
 
 ## Support
 
