@@ -111,6 +111,9 @@ services:
       DEVICE_NAME: Geiger Detector
       DEVICE_MANUFACTURER: GQ Electronics
       DEVICE_MODEL: GMC-500+
+
+      # LOG Configuration
+      LOG_LEVEL: INFO
     restart: unless-stopped
     depends_on:
       - mosquitto
@@ -184,6 +187,16 @@ docker compose down geiger && docker compose up -d geiger
 | `DEVICE_NAME` | `Geiger Detector` | Display name in Home Assistant |
 | `DEVICE_MANUFACTURER` | `GQ Electronics` | Manufacturer name |
 | `DEVICE_MODEL` | `GMC` | Device model name |
+
+### LOG Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DEVICE_ID` | `geiger-detector` | Unique device identifier |
+| `DEVICE_NAME` | `Geiger Detector` | Display name in Home Assistant |
+| `DEVICE_MANUFACTURER` | `GQ Electronics` | Manufacturer name |
+| `DEVICE_MODEL` | `GMC` | Device model name |
+| `LOG_LEVEL` | `INFO` | Logging verbosity (DEBUG, INFO, WARNING, ERROR) |
 
 ## MQTT Topics and Payload
 
@@ -455,6 +468,7 @@ services:
       DEVICE_NAME: "GMC-500+ Geiger Counter"
       DEVICE_MANUFACTURER: "GQ Electronics"
       DEVICE_MODEL: "GMC-500+Re"
+      LOG_LEVEL: WARNING
     depends_on:
       - mosquitto
     networks:

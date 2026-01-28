@@ -8,8 +8,20 @@ import os
 import logging
 from datetime import datetime
 
-loglevel = os.environ.get('LOG_LEVEL', 'INFO').upper()
-logging.basicConfig(level=loglevel, format='%(asctime)s - %(levelname)s - %(message)s')
+LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO').upper()
+logging.basicConfig(
+    level=LOG_LEVEL,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+
+# level map: Paho -> Python Logging
+MQTT_LOG_MAP = {
+    mqtt.MQTT_LOG_DEBUG: logging.DEBUG,
+    mqtt.MQTT_LOG_INFO: logging.INFO,
+    mqtt.MQTT_LOG_NOTICE: logging.INFO, # 'Notice' don't exist in Python, map to INFO
+    mqtt.MQTT_LOG_WARNING: logging.WARNING,
+    mqtt.MQTT_LOG_ERR: logging.ERROR,
+}
 
 PORT = os.getenv("SERIAL_PORT", "/dev/ttyUSB1")
 BAUDRATE = int(os.getenv("SERIAL_BAUDRATE", "115200"))
@@ -154,6 +166,10 @@ def publish_speaker_state(client, state):
     client.publish(f"{MQTT_TOPIC_SPEAKER}/state", state_payload, qos=1, retain=True)
     logging.info(f"[Speaker] Published initial state: {state_payload}")
 
+def on_log(client, userdata, level, buf):
+    py_level = MQTT_LOG_MAP.get(level, logging.INFO)
+    logging.log(py_level, f"MQTT: {buf}")
+
 def main():
     # --- SETUP MQTT ---
     # Try VERSION2 first, fallback to default for older paho-mqtt versions
@@ -162,6 +178,7 @@ def main():
     except (AttributeError, TypeError):
         client = mqtt.Client(client_id=MQTT_CLIENT_ID)
     
+    client.on_log = on_log
     client.on_connect = on_mqtt_connect
     client.on_disconnect = on_mqtt_disconnect
     client.on_message = on_mqtt_message
