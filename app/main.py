@@ -7,6 +7,9 @@ import json
 import os
 import logging
 from datetime import datetime
+import threading
+
+serial_lock = threading.RLock() # Reentrant lock to avoid deadlock
 
 LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO').upper()
 logging.basicConfig(
@@ -83,35 +86,120 @@ def send_cmd(ser, cmd, resp_len=0, is_ascii=False):
     - resp_len: number of expected bytes (0 = no response)
     - is_ascii: if True decode as ASCII
     """
-    ser.reset_input_buffer()
-    packet = f"<{cmd}>>".encode("ascii")
-    ser.write(packet)
-    time.sleep(0.1)
+    with serial_lock:
+        ser.reset_input_buffer()
+        packet = f"<{cmd}>>".encode("ascii")
+        ser.write(packet)
+        time.sleep(0.15)
 
-    if resp_len <= 0:
-        return None
+        if resp_len <= 0:
+            return None
 
-    data = ser.read(resp_len)
-    if not data or len(data) < resp_len:
-        return None
+        data = ser.read(resp_len)
+        if not data or len(data) < resp_len:
+            return None
 
-    return data.decode("ascii", errors="ignore").strip() if is_ascii else data
+        return data.decode("ascii", errors="ignore").strip() if is_ascii else data
 
 def read_variable_ascii(ser, cmd, timeout=1.0):
     """
     For RFC1801 commands that return variable-length ASCII,
-    read until timeout or end indicator ('>>')."""
-    ser.reset_input_buffer()
-    ser.write(f"<{cmd}>>".encode("ascii"))
-    deadline = time.time() + timeout
-    buffer = b""
-    while time.time() < deadline:
-        chunk = ser.read(1)
-        if chunk:
-            buffer += chunk
-        else:
-            break
-    return buffer.decode("ascii", errors="ignore").strip()
+    read until timeout or end indicator ('>>').
+    """
+    with serial_lock:
+        ser.reset_input_buffer()
+        ser.write(f"<{cmd}>>".encode("ascii"))
+        deadline = time.time() + timeout
+        buffer = b""
+        while time.time() < deadline:
+            chunk = ser.read(1)
+            if chunk:
+                buffer += chunk
+            else:
+                break
+        return buffer.decode("ascii", errors="ignore").strip()
+
+def log_config_details(data):
+    if not data or len(data) < 512:
+        logging.error("data is invalid or missing")
+        return
+
+    # B=1 byte, H=2 byte (Unsigned Short), I=4 byte (Unsigned Int), f=float
+    config_map = [
+        (0,  "B", "Power Status"),
+        (1,  "B", "Alarm Sound"),
+        (2,  "B", "Speaker Sound"),
+        (3,  "B", "Graphic Mode"),
+        (4,  "B", "Backlight Timeout (s)"),
+        (5,  "B", "Idle Title Mode"),
+        (6,  ">H", "Alarm CPM Threshold"),
+        (8,  ">H", "Calibration 0 CPM"),
+        (10, ">f", "Calibration 0 uSv/h"),
+        (14, ">H", "Calibration 1 CPM"),
+        (16, ">f", "Calibration 1 uSv/h"),
+        (20, ">H", "Calibration 2 CPM"),
+        (22, ">f", "Calibration 2 uSv/h"),
+        (26, "B", "Idle Display Mode"),
+        (27, ">f", "Alarm uSv/h Threshold"),
+        (31, "B", "Alarm Type"),
+        (32, "B", "Save Data Type"),
+        (33, "B", "Swivel Display"),
+        (48, "B", "LCD Contrast"),
+        (52, "B", "Large Font Mode"),
+        (53, "B", "Backlight Level"),
+        (54, "B", "Reverse Display"),
+        (55, "B", "Motion Detect"),
+        (56, "B", "Battery Type"),
+        # (57, "B", "Auto Power Off"),
+        # (58, ">H", "Auto Power Off Time (min)"),
+        # (60, "B", "Data Logging Enabled"),
+        # (61, ">H", "Data Logging Interval (s)"),
+        # (64, "B", "WiFi Enabled"),
+        # (65, "B", "WiFi DHCP"),
+        # (66, ">H", "WiFi Port"),
+        # (139, "B", "GMCmap Auto Upload"),
+        # (140, ">H", "GMCmap Upload Interval (min)"),
+        # (142, "B", "GMCmap Upload on Power On"),
+        # (143, "B", "GMCmap Upload on Alarm"),
+        # (144, "B", "GMCmap Upload on Interval"),
+        # (145, "B", "GMCmap Upload on Button Press"),
+        # (146, ">H", "GMCmap Max Upload Attempts"),
+        # (148, ">H", "GMCmap Retry Interval (min)"),
+        # (150, "B", "NTP Enabled"),
+        # (151, ">H", "NTP Sync Interval (min)"),
+        # (154, ">H", "NTP Timezone Offset (min)"),
+        # (156, "B", "NTP Daylight Saving"),
+        # (200, "B", "MQTT Enabled"),
+        # (201, ">H", "MQTT Port"),
+        # (250, "B", "HTTP Server Enabled"),
+        # (251, ">H", "HTTP Server Port"),
+        # (300, "B", "OTA Updates Enabled"),
+        # (301, "B", "OTA Update Check Interval (h)"),
+    ]
+
+    logging.info("--- GMC-500 Configuration Details ---")
+    
+    for offset, fmt, label in config_map:
+        try:
+            val = struct.unpack_from(fmt, data, offset)[0]
+            if fmt == "B" and offset <= 2:
+                val = "ON" if val == 1 else "OFF"
+            if fmt == ">f":
+                val = round(val, 4)
+            logging.info(f"{label:25}: {val}")
+        except Exception as e:
+            logging.debug(f"Skip {label}: {e}")
+
+    def clean_str(b_slice):
+        actual_content = b_slice.split(b'\x00')[0]
+        return actual_content.decode('ascii', errors='ignore').strip()
+
+    logging.info(f"{'WiFi SSID':25}: {clean_str(data[69:107])}")
+    # logging.info(f"{'WiFi Password':25}: {clean_str(data[107:159])}")
+    logging.info(f"{'GMCmap URL':25}: {clean_str(data[160:192])}")
+    logging.info(f"{'GMCmap URI':25}: {clean_str(data[192:224])}")
+    
+    logging.info("-------------------------------------")
 
 def on_mqtt_connect(client, userdata, flags, rc, *args, **kwargs):
     """MQTT connection callback"""
@@ -137,6 +225,18 @@ def publish_sensor(client, topic, value, min_val, avg_val, max_val):
     }
     client.publish(topic, json.dumps(payload), qos=1)
 
+def get_speaker_state_from_device(ser):
+    """
+    Retrieve current speaker state from device configuration
+    Returns True if speaker is enabled, False if disabled, None on error
+    """
+    config_raw = send_cmd(ser, "GETCFG", resp_len=512)
+    if config_raw and len(config_raw) >= 3:
+        # Il byte all'offset 2 è lo Speaker Sound
+        speaker_bit = struct.unpack_from("B", config_raw, 2)[0]
+        return (speaker_bit == 1)
+    return None
+
 def set_speaker(ser, enabled):
     """
     Control speaker via RFC1801 protocol
@@ -153,20 +253,27 @@ def set_speaker(ser, enabled):
         return False
 
 def on_mqtt_message(client, userdata, msg):
-    """Handle incoming MQTT messages (speaker control)"""
+    """
+    Handle incoming MQTT messages (speaker control)
+    """
     if msg.topic == f"{MQTT_TOPIC_SPEAKER}/set":
         payload = msg.payload.decode().lower()
-        if payload in ["on", "1", "true"]:
-            userdata["speaker_state"] = set_speaker(userdata["serial"], True)
-        elif payload in ["off", "0", "false"]:
-            userdata["speaker_state"] = set_speaker(userdata["serial"], False)
+        requested_state = payload in ["on", "1", "true"]
         
-        # Publish state back with retain flag
-        state_payload = json.dumps({"state": "ON" if userdata.get("speaker_state", False) else "OFF"})
-        client.publish(f"{MQTT_TOPIC_SPEAKER}/state", state_payload, qos=1, retain=True)
+        set_speaker(userdata["serial"], requested_state)
+        time.sleep(0.2) 
+        
+        actual_state = get_speaker_state_from_device(userdata["serial"])
+        
+        if actual_state is not None:
+            userdata["speaker_state"] = actual_state
+            publish_speaker_state(client, actual_state)
+            logging.info(f"[Speaker] Sync completed. State: {'ON' if actual_state else 'OFF'}")
 
 def publish_speaker_state(client, state):
-    """Publish speaker state with retain flag"""
+    """
+    Publish speaker state with retain flag
+    """
     state_payload = "ON" if state else "OFF"
     client.publish(f"{MQTT_TOPIC_SPEAKER}/state", state_payload, qos=1, retain=True)
     logging.info(f"[Speaker] Published initial state: {state_payload}")
@@ -254,13 +361,20 @@ def main():
             logging.info("DateTime: no response")
 
         # --- CONFIG (512 bytes) ---
-        config = send_cmd(ser, "GETCFG", resp_len=512)
-        logging.info(f"Config: [binary data]: {config if config else 'no response'}")
+        config_raw = send_cmd(ser, "GETCFG", resp_len=512)
+        log_config_details(config_raw)
 
         # --- PUBLISH INITIAL SPEAKER STATE ---
         if client:
-            publish_speaker_state(client, False)  # Default to OFF
+            is_speaker_on = get_speaker_state_from_device(ser)
+            if is_speaker_on is not None:
+                client.user_data_get()["speaker_state"] = is_speaker_on
+                publish_speaker_state(client, is_speaker_on)
+                logging.info(f"[Init] Speaker state detected: {'ON' if is_speaker_on else 'OFF'}")
+            else:
+                logging.warning("[Init] Could not detect initial speaker state")
             time.sleep(0.5)
+
 
         logging.debug("\nStarting continuous reading (Ctrl+C to exit)...\n")
 
