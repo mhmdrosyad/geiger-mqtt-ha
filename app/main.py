@@ -231,17 +231,17 @@ def main():
 
         # --- VERSION ASCII ---
         version = read_variable_ascii(ser, "GETVER", timeout=1.5)
-        logging.info("Version:", version if version else "<no response>")
+        logging.info(f"Version: {version if version else '<no response>'}")
 
         # --- BATTERY ASCII (5 bytes) ---
         batt = send_cmd(ser, "GETVOLT", resp_len=5, is_ascii=True)
-        logging.info("Battery:", batt if batt else "<no response>")
-
+        logging.info(f"Battery: {batt if batt else '<no response>'}")
+        
         # --- SERIAL NUMBER (7 bytes) ---
         raw_ser = send_cmd(ser, "GETSERIAL", resp_len=7)
         if raw_ser:
             serial_num = raw_ser.hex().upper()
-            logging.info("Serial:", serial_num)
+            logging.info(f"Serial: {serial_num}")
         else:
             logging.info("Serial: no response")
 
@@ -252,6 +252,10 @@ def main():
             logging.info(f"DateTime: 20{yy:02d}-{mm:02d}-{dd:02d} {hh:02d}:{mi:02d}:{ss:02d}")
         else:
             logging.info("DateTime: no response")
+
+        # --- CONFIG (512 bytes) ---
+        config = send_cmd(ser, "GETCFG", resp_len=512)
+        logging.info(f"Config: [binary data]: {config if config else 'no response'}")
 
         # --- PUBLISH INITIAL SPEAKER STATE ---
         if client:
