@@ -61,11 +61,16 @@ def validate_cpm(cpm, cpm_history):
     if len(cpm_history) > 2:
         mean = sum(cpm_history) / len(cpm_history)
         variance = sum((x - mean) ** 2 for x in cpm_history) / len(cpm_history)
+
+        if abs(cpm - mean) < 5:
+            return True, "OK"   # Negligible difference
+
         std_dev = variance ** 0.5
+        effective_std_dev = max(std_dev, 5.0) # at least 5.0 of tolerance
         
         # 3-sigma rule: reject values beyond 3 standard deviations
         if std_dev > 0:
-            z_score = abs(cpm - mean) / std_dev
+            z_score = abs(cpm - mean) / effective_std_dev
             if z_score > 3.0:
                 return False, f"statistical outlier (z={z_score:.2f}, mean={mean:.1f}±{std_dev:.1f})"
     
