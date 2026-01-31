@@ -1,6 +1,7 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
+const { logger } = require('../utils/loger');
 
 const routes = require('./routes');
 const handleErrors = require('./middlewares/errorHandler');
@@ -16,5 +17,5 @@ app.use('/', routes);
 app.use(handleErrors);
 
 app.listen(port, () => {
-    console.log(`REST API listening at http://localhost:${port}`);
+    logger.info(`Server listening at http://localhost:${port}`);
 });

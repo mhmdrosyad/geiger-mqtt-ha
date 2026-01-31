@@ -1,10 +1,11 @@
 const express = require('express');
 const { MongoClient, ObjectId } = require('mongodb');
 const router = express.Router();
+const { logger } = require('../utils/loger');
 
 // DB
 // Connection URL
-const url = 'mongodb://0.0.0.0:27017';
+const url = 'mongodb+srv://mhmdrosyad:radongblas@learnmongo.qyaegie.mongodb.net/?retryWrites=true&w=majority';
 const dbName = 'asetDB';
 
 router.post('/aset', (req, res, next) => {   
@@ -17,18 +18,21 @@ router.post('/aset', (req, res, next) => {
     async function run() {
         try{
             if(!nama || !stock){
+                logger.error(`${req.originalUrl} - ${req.ip} - nama or stock is missing `);
                 throw new Error('isi dengan lengkap');
             }
             const hasil = await asetCollection.insertOne(req.body).then((result => {
                 console.log(result)
             }));
         } catch(error){
+            logger.error(`${req.originalUrl} - ${req.ip} - ${error} `);
             next(error);
         }finally {
             await client.close();
         }
     }
     run();
+    logger.info(`${req.originalUrl} - ${req.ip} - Data successfully saved`);
     res.status(200).json('Data successfully saved');
 });
 
@@ -76,6 +80,7 @@ router.put('/aset/:id', (req, res, next) => {
     async function run() {
         try{
             if(!nama || !stock){
+                logger.error(`${req.originalUrl} - ${req.ip} - ${error} `);
                 throw new Error('isi dengan lengkap');
             }
             const hasil = await asetCollection
@@ -87,13 +92,15 @@ router.put('/aset/:id', (req, res, next) => {
                                         console.log(result)
                                     })
         } catch(error){
+            logger.error(`${req.originalUrl} - ${req.ip} - nama or stock is missing `);
             next(error);
         }finally {
             await client.close();
         }
     }
     run();
-    res.status(200).json('Data successfully delete');
+    logger.info(`${req.originalUrl} - ${req.ip} - Data successfully update`);
+    res.status(200).json('Data successfully update');
 })
 
 router.delete('/aset/:id', (req, res) => {
